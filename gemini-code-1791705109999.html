@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attending and Non Attending Students - Institute Management</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- SheetJS (xlsx.full.min.js) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar & aesthetic enhancements */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .fade-in { animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased flex flex-col">
+
+  <!-- ================= AUTHENTICATION MODAL / OVERLAY ================= -->
+  <div id="authOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 p-8 fade-in">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 mb-4 shadow-inner">
+          <i class="fa-solid fa-graduation-cap text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-800">Administrator Portal</h2>
+        <p class="text-sm text-slate-500 mt-1">Class 11 & 12 Academic Registry & Fees</p>
+      </div>
+
+      <form id="loginForm" onsubmit="handleAuthLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Email Address</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+              <i class="fa-regular fa-envelope"></i>
+            </span>
+            <input type="email" id="loginEmail" required value="admin@institute.edu" class="w-full pl-10 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Access Password</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+              <i class="fa-solid fa-lock"></i>
+            </span>
+            <input type="password" id="loginPassword" required value="admin123" class="w-full pl-10 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+            <span>Remember session</span>
+          </label>
+          <span class="text-indigo-600 font-medium">Demo Mode</span>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-indigo-500/25 transition">
+          Sign In to Workspace
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= DASHBOARD MAIN SHELL ================= -->
+  <div id="mainDashboard" class="flex-1 flex flex-col hidden">
+    
+    <!-- TOP NAVIGATION -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
+            <i class="fa-solid fa-school text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-base sm:text-lg font-bold text-slate-800 leading-tight">Attending & Non-Attending Students</h1>
+            <p class="text-xs text-slate-500 hidden sm:block">Senior Secondary Stream & Accounts Terminal</p>
+          </div>
+        </div>
+
+        <!-- Right Controls -->
+        <div class="flex items-center space-x-3 sm:space-x-4">
+          <!-- Online / Offline Pill -->
+          <div id="onlinePill" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="onlinePillText">Online</span>
+          </div>
+
+          <!-- Recycle Bin Trigger -->
+          <button onclick="openRecycleBinModal()" class="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition" title="Recycle Bin">
+            <i class="fa-solid fa-trash-can text-lg"></i>
+            <span id="recycleCountBadge" class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
+          </button>
+
+          <!-- Divider -->
+          <div class="h-6 w-px bg-slate-200"></div>
+
+          <!-- User Profile & Logout -->
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs border border-slate-300">
+                AD
+              </div>
+              <span class="text-sm font-medium text-slate-700 hidden md:inline-block">Admin Accountant</span>
+            </div>
+            <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition" title="Logout">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT WRAPPER -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- WORKSPACE CONTROLS & DYNAMIC FILTERS -->
+      <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <!-- Top Row Filters -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Academic Year -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Academic Year</label>
+            <select id="filterAcademicYear" onchange="applyFilters()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="2026-2027">2026 - 2027</option>
+              <option value="2025-2026">2025 - 2026</option>
+            </select>
+          </div>
+
+          <!-- Class Filter -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Class / Grade</label>
+            <select id="filterClass" onchange="applyFilters()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="ALL">All Classes (11 & 12)</option>
+              <option value="Class 11">Class 11</option>
+              <option value="Class 12">Class 12</option>
+            </select>
+          </div>
+
+          <!-- Attendance Status Filter -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Attendance Status</label>
+            <select id="filterAttendance" onchange="applyFilters()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="ALL">All Attendance Status</option>
+              <option value="Attending">Attending (Regular)</option>
+              <option value="Non-Attending">Non-Attending (Dummy / Distance)</option>
+            </select>
+          </div>
+
+          <!-- Stream Selector -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Stream</label>
+            <select id="filterStream" onchange="applyFilters()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="ALL">All Streams</option>
+              <option value="PCM">PCM (Non-Medical)</option>
+              <option value="PCB">PCB (Medical)</option>
+              <option value="Commerce">Commerce</option>
+              <option value="Arts / Humanities">Arts / Humanities</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Middle Row: Search and Action Buttons -->
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pt-3 border-t border-slate-100">
+          <!-- Real-Time Search -->
+          <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" id="globalSearchInput" oninput="applyFilters()" placeholder="Search by Sequence No, Student Name, Contact Number, or Father's Name..." class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Add Student -->
+            <button onclick="openStudentModal()" class="inline-flex items-center space-x-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Add Student</span>
+            </button>
+
+            <!-- Import Data -->
+            <button onclick="openImportModal()" class="inline-flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-medium rounded-lg shadow-sm transition">
+              <i class="fa-solid fa-file-import text-indigo-600"></i>
+              <span>Import</span>
+            </button>
+
+            <!-- Export Data Menu -->
+            <div class="relative inline-block text-left">
+              <button onclick="toggleExportMenu()" class="inline-flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-medium rounded-lg shadow-sm transition">
+                <i class="fa-solid fa-file-export text-emerald-600"></i>
+                <span>Export</span>
+                <i class="fa-solid fa-chevron-down text-xs ml-1"></i>
+              </button>
+              <div id="exportDropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 p-1 border border-slate-100">
+                <button onclick="exportCurrentView('xlsx')" class="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center space-x-2">
+                  <i class="fa-solid fa-file-excel text-emerald-600 w-4"></i>
+                  <span>Export Filtered to Excel (.xlsx)</span>
+                </button>
+                <button onclick="exportCurrentView('csv')" class="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center space-x-2">
+                  <i class="fa-solid fa-file-csv text-blue-600 w-4"></i>
+                  <span>Export to CSV (Google Sheets)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Batch Actions Menu -->
+            <div class="relative inline-block text-left">
+              <button id="batchActionsBtn" disabled onclick="toggleBatchMenu()" class="inline-flex items-center space-x-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-list-check"></i>
+                <span id="batchCountLabel">Batch (0)</span>
+                <i class="fa-solid fa-chevron-down text-xs ml-1"></i>
+              </button>
+              <div id="batchDropdownMenu" class="hidden absolute right-0 mt-2 w-52 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 p-1 border border-slate-100">
+                <button onclick="triggerBatchDelete('selected')" class="w-full text-left px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg flex items-center space-x-2">
+                  <i class="fa-solid fa-trash"></i>
+                  <span>Delete Selected</span>
+                </button>
+                <button onclick="triggerBatchDelete('allFiltered')" class="w-full text-left px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 rounded-lg flex items-center space-x-2">
+                  <i class="fa-solid fa-dumpster-fire"></i>
+                  <span>Delete All Filtered Students</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- METRIC CHIPS -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase">Total Filtered</p>
+            <p id="statTotalCount" class="text-2xl font-bold text-slate-800">0</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-users"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase">Attending (Regular)</p>
+            <p id="statAttendingCount" class="text-2xl font-bold text-emerald-600">0</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase">Non-Attending (Dummy)</p>
+            <p id="statNonAttendingCount" class="text-2xl font-bold text-purple-600">0</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-user-clock"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase">Active Total Dues</p>
+            <p id="statTotalDues" class="text-2xl font-bold text-rose-600">₹0</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-indian-rupee-sign"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- REGISTRY TABLE (DESKTOP) & CARD STACK (MOBILE) -->
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Table container for desktop -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <tr>
+                <th class="p-4 w-12 text-center">
+                  <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                </th>
+                <th class="p-4">Sequence ID</th>
+                <th class="p-4">Student Details</th>
+                <th class="p-4">Class & Stream</th>
+                <th class="p-4">Parent Details</th>
+                <th class="p-4">DOB & Gender</th>
+                <th class="p-4">Fee Status</th>
+                <th class="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Stack Container -->
+        <div id="studentMobileContainer" class="block md:hidden divide-y divide-slate-100 p-2">
+          <!-- Rendered via JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="noDataState" class="hidden text-center py-12 px-4">
+          <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-2xl mb-3">
+            <i class="fa-regular fa-folder-open"></i>
+          </div>
+          <h3 class="text-base font-semibold text-slate-700">No Student Records Found</h3>
+          <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Try adjusting your filters, searching for another keyword, or adding a new student to the registry.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= STUDENT FORM MODAL (ADD / EDIT) ================= -->
+  <div id="studentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 hidden">
+    <div class="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden fade-in">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+            <i class="fa-solid fa-user-pen"></i>
+          </div>
+          <div>
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-800">Add New Student Admission</h3>
+            <p class="text-xs text-slate-500">Provide required demographic, academic, and fee structure details.</p>
+          </div>
+        </div>
+        <button onclick="closeStudentModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body Form -->
+      <form id="studentAdmissionForm" onsubmit="saveStudentForm(event)" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <input type="hidden" id="formStudentId">
+
+        <!-- SECTION A: Demographics & Attendance Status -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 pb-2 mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-address-card"></i>
+            <span>A. Demographics & Attendance Status</span>
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Sequence No (Read-Only Preview) -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Sequence ID (Auto)</label>
+              <input type="text" id="formSeqId" readonly class="w-full text-xs font-mono bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-slate-500 font-bold focus:outline-none cursor-not-allowed">
+            </div>
+
+            <!-- Attendance Mode (MANDATORY) -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Attendance Mode <span class="text-rose-500">*</span></label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center justify-center space-x-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:bg-emerald-50 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/60 has-[:checked]:text-emerald-700">
+                  <input type="radio" name="formAttendance" value="Attending" required class="text-emerald-600 focus:ring-emerald-500" onchange="generateSequencePreview()">
+                  <span class="text-xs font-semibold">Attending (Regular)</span>
+                </label>
+                <label class="flex items-center justify-center space-x-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:bg-purple-50 transition has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50/60 has-[:checked]:text-purple-700">
+                  <input type="radio" name="formAttendance" value="Non-Attending" required class="text-purple-600 focus:ring-purple-500" onchange="generateSequencePreview()">
+                  <span class="text-xs font-semibold">Non-Attending (Dummy)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Full Name -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Student Full Name <span class="text-rose-500">*</span></label>
+              <input type="text" id="formFullName" required placeholder="e.g., Aryan Sharma" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Father's Name -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Father's Name <span class="text-rose-500">*</span></label>
+              <input type="text" id="formFatherName" required placeholder="e.g., Rajesh Sharma" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Mother's Name -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Mother's Name <span class="text-rose-500">*</span></label>
+              <input type="text" id="formMotherName" required placeholder="e.g., Sunita Sharma" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Gender -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Gender <span class="text-rose-500">*</span></label>
+              <select id="formGender" required class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <!-- Date of Birth -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Date of Birth (DOB) <span class="text-rose-500">*</span></label>
+              <input type="date" id="formDob" required class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Religion & Category -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Category / Caste</label>
+              <select id="formCategory" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="General">General</option>
+                <option value="OBC">OBC</option>
+                <option value="SC">SC</option>
+                <option value="ST">ST</option>
+                <option value="EWS">EWS</option>
+              </select>
+            </div>
+
+            <!-- Nationality -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Nationality</label>
+              <input type="text" id="formNationality" value="Indian" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Only Child -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Only Child?</label>
+              <select id="formOnlyChild" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+
+            <!-- Specially Abled -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Specially Abled?</label>
+              <select id="formSpeciallyAbled" onchange="toggleDisabilityInput(this.value)" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+
+            <!-- Disability Specification -->
+            <div id="disabilitySpecContainer" class="hidden sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Disability Specification</label>
+              <input type="text" id="formDisabilityDetail" placeholder="Please mention details" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <!-- Family Annual Income -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Annual Family Income (₹)</label>
+              <input type="number" id="formIncome" placeholder="e.g., 600000" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION B: Academic History (Class 10th Record) -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 pb-2 mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-book-open"></i>
+            <span>B. Academic History & Stream Opted</span>
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">10th Passing Year</label>
+              <input type="number" id="form10Year" placeholder="2024" value="2025" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">10th Marks / %</label>
+              <input type="text" id="form10Marks" placeholder="e.g., 89.4%" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">10th Roll Number</label>
+              <input type="text" id="form10Roll" placeholder="Roll No" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">10th Board</label>
+              <select id="form10Board" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="CBSE">CBSE</option>
+                <option value="ICSE">ICSE</option>
+                <option value="State Board">State Board</option>
+                <option value="Others">Others</option>
+              </select>
+            </div>
+
+            <!-- Opted Class -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Opted Class <span class="text-rose-500">*</span></label>
+              <select id="formOptedClass" required onchange="generateSequencePreview()" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="Class 11">Class 11</option>
+                <option value="Class 12">Class 12</option>
+              </select>
+            </div>
+
+            <!-- Opted Stream -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Opted Stream <span class="text-rose-500">*</span></label>
+              <select id="formOptedStream" required onchange="generateSequencePreview()" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="PCM">PCM (Physics, Chemistry, Maths)</option>
+                <option value="PCB">PCB (Physics, Chemistry, Biology)</option>
+                <option value="Commerce">Commerce</option>
+                <option value="Arts / Humanities">Arts / Humanities</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION C: Contact & Communication Details -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 pb-2 mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-phone"></i>
+            <span>C. Contact & Communication Details</span>
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="sm:col-span-3">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Residential Address</label>
+              <textarea id="formAddress" rows="2" placeholder="Full permanent address with PIN code" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number (10 digits) <span class="text-rose-500">*</span></label>
+              <input type="tel" id="formContact" required pattern="[0-9]{10}" placeholder="9876543210" oninput="syncWhatsappNumber()" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-semibold text-slate-600">WhatsApp Number</label>
+                <label class="text-[11px] text-indigo-600 flex items-center space-x-1 cursor-pointer">
+                  <input type="checkbox" id="formSameWhatsapp" onchange="toggleSameWhatsapp(this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500">
+                  <span>Same</span>
+                </label>
+              </div>
+              <input type="tel" id="formWhatsapp" pattern="[0-9]{10}" placeholder="9876543210" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Email ID</label>
+              <input type="email" id="formEmail" placeholder="student@example.com" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION D: Dynamic Fee & Installment Engine -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 pb-2 mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-receipt"></i>
+            <span>D. Fee Structure & Dynamic Installment Engine</span>
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Total Course Fee (₹) <span class="text-rose-500">*</span></label>
+              <input type="number" id="formTotalFee" required min="0" value="65000" oninput="recalcFeeStructure()" class="w-full text-xs font-semibold text-slate-800 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Plan Mode</label>
+              <select id="formPaymentPlan" onchange="togglePaymentPlan(this.value)" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="Installment Plan">Installment Plan</option>
+                <option value="Full Payment">Full Payment Upfront</option>
+              </select>
+            </div>
+
+            <div id="installmentCountWrapper">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Installment Count</label>
+              <select id="formInstallmentCount" onchange="recalcFeeStructure()" class="w-full text-xs bg-white border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <option value="2">2 Installments</option>
+                <option value="3" selected>3 Installments</option>
+                <option value="4">4 Installments</option>
+                <option value="6">6 Installments</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Live Balance Metric Pill Bar -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs mb-4">
+            <div>
+              <span class="text-slate-500">Agreed Total:</span>
+              <span id="feeSummaryTotal" class="font-bold text-slate-800 ml-1">₹65,000</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Total Paid Amount:</span>
+              <span id="feeSummaryPaid" class="font-bold text-emerald-600 ml-1">₹0</span>
+            </div>
+            <div class="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200">
+              <span class="text-rose-600 font-medium">Remaining Due Balance:</span>
+              <span id="feeSummaryDue" class="font-extrabold text-rose-700 ml-1">₹65,000</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Installments Table / Full payment fields -->
+          <div id="fullPaymentFields" class="hidden space-y-3 bg-slate-50/50 p-3 rounded-xl border border-slate-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-600 mb-1">Payment Date</label>
+                <input type="date" id="formFullPayDate" class="w-full border border-slate-200 rounded-lg p-2">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-1">Payment Mode</label>
+                <select id="formFullPayMode" class="w-full bg-white border border-slate-200 rounded-lg p-2">
+                  <option value="UPI">UPI / QR Code</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                  <option value="Cheque">Cheque</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="installmentTableContainer" class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-600 uppercase font-semibold">
+                <tr>
+                  <th class="p-2.5">#</th>
+                  <th class="p-2.5">Scheduled (₹)</th>
+                  <th class="p-2.5">Paid (₹)</th>
+                  <th class="p-2.5">Payment Date</th>
+                  <th class="p-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody id="installmentTbody" class="divide-y divide-slate-100">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Form Actions Footer -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
+          <button type="button" onclick="closeStudentModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition flex items-center space-x-2">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Save & Register Student</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= VIEW PROFILE MODAL ================= -->
+  <div id="profileModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 hidden">
+    <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden fade-in">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+          <i class="fa-solid fa-id-card text-indigo-600"></i>
+          <span>Student Comprehensive Dossier</span>
+        </h3>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-600 p-2 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="profileContent" class="p-6 overflow-y-auto space-y-6 text-xs text-slate-600">
+        <!-- Rendered via JS -->
+      </div>
+
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button id="profileExcelPreviewBtn" class="text-xs font-medium text-indigo-600 hover:underline">
+          <i class="fa-solid fa-table mr-1"></i> Show in Excel Preview
+        </button>
+        <div class="flex space-x-2">
+          <button id="downloadSingleRecordBtn" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center space-x-1">
+            <i class="fa-solid fa-download"></i>
+            <span>Download .xlsx</span>
+          </button>
+          <button onclick="closeProfileModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= IMPORT DATA MODAL ================= -->
+  <div id="importModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 p-6 fade-in space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i class="fa-solid fa-file-import"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">Smart Data Import</h3>
+            <p class="text-xs text-slate-500">Excel (.xlsx/.xls) or Google Sheets CSV with Stream & DOB normalization</p>
+          </div>
+        </div>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex border-b border-slate-200 text-xs font-semibold">
+        <button id="importTabFileBtn" onclick="switchImportTab('file')" class="py-2 px-4 border-b-2 border-indigo-600 text-indigo-600">Local Excel / CSV File</button>
+        <button id="importTabUrlBtn" onclick="switchImportTab('url')" class="py-2 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700">Google Sheets Link</button>
+      </div>
+
+      <!-- Tab 1: Local File -->
+      <div id="importFileSection" class="space-y-4">
+        <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-indigo-400 transition cursor-pointer" onclick="document.getElementById('importFileInput').click()">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+          <p class="text-xs font-semibold text-slate-700">Click to select an Excel (.xlsx, .xls) or .csv file</p>
+          <p class="text-[11px] text-slate-400 mt-1">Automatic fuzzy matching of streams and multi-format DOB normalizer</p>
+          <input type="file" id="importFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelected(event)">
+        </div>
+        <div id="selectedFileName" class="text-xs font-medium text-indigo-600 hidden text-center"></div>
+      </div>
+
+      <!-- Tab 2: Google Sheets URL -->
+      <div id="importUrlSection" class="space-y-3 hidden">
+        <label class="block text-xs font-semibold text-slate-600">Published Google Sheets CSV Link</label>
+        <input type="url" id="importSheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv" class="w-full text-xs border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        <p class="text-[11px] text-slate-400">Ensure the Google Sheet is shared as "Anyone with the link can view" or published to the web as CSV.</p>
+      </div>
+
+      <!-- Processing status -->
+      <div id="importStatusBox" class="hidden p-3 rounded-lg text-xs font-medium"></div>
+
+      <div class="flex items-center justify-between pt-2">
+        <button onclick="downloadSampleTemplate()" class="text-xs text-indigo-600 hover:underline flex items-center space-x-1">
+          <i class="fa-solid fa-file-arrow-down"></i>
+          <span>Download Sample Template (.xlsx)</span>
+        </button>
+        <div class="flex space-x-2">
+          <button onclick="closeImportModal()" class="px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onclick="executeImport()" class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Process & Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CRITICAL DELETION SAFEGUARD MODAL ================= -->
+  <div id="deleteSafeguardModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 p-6 fade-in space-y-4">
+      <div class="flex items-center space-x-3 text-rose-600">
+        <div class="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-xl shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-800">Confirm Deletion Action</h3>
+          <p class="text-xs text-slate-500">Safeguard & Recycle System Intercept</p>
+        </div>
+      </div>
+
+      <p id="deleteSafeguardMessage" class="text-xs text-slate-600 leading-relaxed">
+        Are you sure you want to proceed? Please select how you want this record to be processed.
+      </p>
+
+      <div class="space-y-2 pt-2">
+        <!-- Option A: Soft Delete -->
+        <button onclick="confirmDeletion('soft')" class="w-full text-left p-3 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/70 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-recycle text-amber-600 text-lg"></i>
+            <div>
+              <p class="text-xs font-bold text-amber-900">Move to Recycle Bin (Recommended)</p>
+              <p class="text-[11px] text-amber-700">Soft delete. Retains record for restore at any time.</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-amber-500 text-xs"></i>
+        </button>
+
+        <!-- Option B: Hard Delete -->
+        <button onclick="confirmDeletion('hard')" class="w-full text-left p-3 rounded-xl border border-rose-200 bg-rose-50/40 hover:bg-rose-100/70 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-ban text-rose-600 text-lg"></i>
+            <div>
+              <p class="text-xs font-bold text-rose-900">Delete Permanently</p>
+              <p class="text-[11px] text-rose-700">Purge record forever. This cannot be undone.</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-rose-500 text-xs"></i>
+        </button>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="closeDeleteSafeguardModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">
+          Cancel (Keep Records)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RECYCLE BIN MODAL ================= -->
+  <div id="recycleBinModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden fade-in">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <i class="fa-solid fa-trash-can text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Recycle Bin Safety Archive</h3>
+            <p class="text-xs text-slate-500">Deleted students can be safely restored or permanently purged.</p>
+          </div>
+        </div>
+        <button onclick="closeRecycleBinModal()" class="text-slate-400 hover:text-slate-600 p-2 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Action Top Bar -->
+      <div class="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between text-xs">
+        <span id="recycleBinItemCount" class="font-semibold text-slate-600">0 archived items</span>
+        <div class="space-x-2">
+          <button onclick="restoreAllRecycled()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold rounded-lg border border-indigo-200">
+            <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Restore All
+          </button>
+          <button onclick="emptyRecycleBinPermanently()" class="px-3 py-1.5 bg-rose-600 text-white hover:bg-rose-700 font-semibold rounded-lg">
+            <i class="fa-solid fa-dumpster-fire mr-1"></i> Empty Permanently
+          </button>
+        </div>
+      </div>
+
+      <!-- Table of deleted items -->
+      <div class="flex-1 overflow-y-auto p-4">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-100 text-slate-600 uppercase font-semibold">
+            <tr>
+              <th class="p-3">Sequence ID</th>
+              <th class="p-3">Student Name</th>
+              <th class="p-3">Class & Stream</th>
+              <th class="p-3">Deleted Date</th>
+              <th class="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recycleTableBody" class="divide-y divide-slate-100">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+        <div id="recycleEmptyState" class="hidden text-center py-12 text-slate-400">
+          <i class="fa-solid fa-trash-can text-3xl mb-2"></i>
+          <p class="font-medium text-xs">Recycle Bin is currently clean and empty.</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeRecycleBinModal()" class="px-4 py-2 text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= NOTIFICATION TOAST CONTAINER ================= -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- ================= APPLICATION SCRIPTS & ENGINES ================= -->
+  <script>
+    /**
+     * ATTENDING & NON-ATTENDING STUDENTS DASHBOARD
+     * Architecture: Offline-first In-Memory + LocalStorage Store
+     * Mock Async Service Layer structured for Firebase Auth & Firestore plug-and-play.
+     */
+
+    // --- MOCK SERVICE LAYER (FIREBASE READY INTERFACES) ---
+    const DB_STORAGE_KEY = 'INSTITUTE_STUDENTS_V1';
+    const RECYCLE_STORAGE_KEY = 'INSTITUTE_RECYCLE_V1';
+    const AUTH_SESSION_KEY = 'INSTITUTE_AUTH_USER';
+
+    const MockService = {
+      // Async wrapper simulating Firestore collection
+      async fetchStudents() {
+        const data = localStorage.getItem(DB_STORAGE_KEY);
+        return data ? JSON.parse(data) : MockService.getSeedData();
+      },
+      async saveStudents(students) {
+        localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(students));
+        return true;
+      },
+      async fetchRecycled() {
+        const data = localStorage.getItem(RECYCLE_STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+      },
+      async saveRecycled(recycled) {
+        localStorage.setItem(RECYCLE_STORAGE_KEY, JSON.stringify(recycled));
+        return true;
+      },
+      getSeedData() {
+        return [
+          {
+            id: 'std_101',
+            seqId: '2026-11-PCM-001',
+            academicYear: '2026-2027',
+            attendance: 'Attending',
+            fullName: 'Aarav Malhotra',
+            fatherName: 'Vikas Malhotra',
+            motherName: 'Ritu Malhotra',
+            gender: 'Male',
+            dob: '2008-04-14',
+            category: 'General',
+            nationality: 'Indian',
+            onlyChild: 'No',
+            speciallyAbled: 'No',
+            disabilityDetail: '',
+            income: '850000',
+            class10: { year: '2024', marks: '92.4%', roll: '1120491', board: 'CBSE' },
+            optedClass: 'Class 11',
+            optedStream: 'PCM',
+            address: 'Flat 402, Royal Palms, Civil Lines, Jaipur',
+            contact: '9829012345',
+            whatsapp: '9829012345',
+            email: 'aarav.malhotra@gmail.com',
+            totalFee: 65000,
+            paymentPlan: 'Installment Plan',
+            installments: [
+              { num: 1, amount: 25000, paid: 25000, date: '2026-04-10', status: 'Paid' },
+              { num: 2, amount: 20000, paid: 20000, date: '2026-08-10', status: 'Paid' },
+              { num: 3, amount: 20000, paid: 0, date: '2026-11-15', status: 'Unpaid' }
+            ],
+            remainingDue: 20000,
+            createdAt: '2026-04-10T10:00:00Z'
+          },
+          {
+            id: 'std_102',
+            seqId: '2026-12-PCB-002',
+            academicYear: '2026-2027',
+            attendance: 'Non-Attending',
+            fullName: 'Diya Singhania',
+            fatherName: 'Praveen Singhania',
+            motherName: 'Anjana Singhania',
+            gender: 'Female',
+            dob: '2007-11-20',
+            category: 'General',
+            nationality: 'Indian',
+            onlyChild: 'Yes',
+            speciallyAbled: 'No',
+            disabilityDetail: '',
+            income: '1200000',
+            class10: { year: '2023', marks: '95.8%', roll: '1194021', board: 'ICSE' },
+            optedClass: 'Class 12',
+            optedStream: 'PCB',
+            address: 'B-12, Green Park Extension, New Delhi',
+            contact: '9811223344',
+            whatsapp: '9811223344',
+            email: 'diya.singhania@yahoo.com',
+            totalFee: 75000,
+            paymentPlan: 'Full Payment',
+            installments: [
+              { num: 1, amount: 75000, paid: 75000, date: '2026-03-25', status: 'Paid' }
+            ],
+            remainingDue: 0,
+            createdAt: '2026-03-25T09:30:00Z'
+          },
+          {
+            id: 'std_103',
+            seqId: '2026-11-COMM-003',
+            academicYear: '2026-2027',
+            attendance: 'Non-Attending',
+            fullName: 'Kabir Verma',
+            fatherName: 'Sanjay Verma',
+            motherName: 'Meenakshi Verma',
+            gender: 'Male',
+            dob: '2008-09-05',
+            category: 'OBC',
+            nationality: 'Indian',
+            onlyChild: 'No',
+            speciallyAbled: 'No',
+            disabilityDetail: '',
+            income: '450000',
+            class10: { year: '2024', marks: '84.0%', roll: '992014', board: 'State Board' },
+            optedClass: 'Class 11',
+            optedStream: 'Commerce',
+            address: 'H-304, Silver Oak Heights, Ahmedabad',
+            contact: '9725044332',
+            whatsapp: '9725044332',
+            email: 'kabir.verma8@gmail.com',
+            totalFee: 55000,
+            paymentPlan: 'Installment Plan',
+            installments: [
+              { num: 1, amount: 20000, paid: 20000, date: '2026-04-05', status: 'Paid' },
+              { num: 2, amount: 20000, paid: 10000, date: '2026-08-05', status: 'Partial' },
+              { num: 3, amount: 15000, paid: 0, date: '2026-12-05', status: 'Unpaid' }
+            ],
+            remainingDue: 25000,
+            createdAt: '2026-04-05T14:15:00Z'
+          }
+        ];
+      }
+    };
+
+    // --- APPLICATION STATE ---
+    let appState = {
+      students: [],
+      recycled: [],
+      selectedIds: new Set(),
+      filteredList: [],
+      pendingDeletePayload: null, // Holds target for safeguard modal
+      importedRowsCache: []
+    };
+
+    // --- INITIALIZATION ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      setupNetworkStatus();
+      checkAuthSession();
+      await loadInitialData();
+      renderDashboard();
+    });
+
+    // --- NETWORK OFFLINE / ONLINE DETECTION ---
+    function setupNetworkStatus() {
+      const updateStatus = () => {
+        const isOnline = navigator.onLine;
+        const pill = document.getElementById('onlinePill');
+        const text = document.getElementById('onlinePillText');
+        if (isOnline) {
+          pill.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+          text.textContent = "Online";
+        } else {
+          pill.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+          text.textContent = "Offline (Local)";
+        }
+      };
+      window.addEventListener('online', () => { updateStatus(); showToast('Connection restored', 'info'); });
+      window.addEventListener('offline', () => { updateStatus(); showToast('Working in Offline mode', 'warning'); });
+      updateStatus();
+    }
+
+    // --- AUTHENTICATION CONTROLLER ---
+    function checkAuthSession() {
+      const user = localStorage.getItem(AUTH_SESSION_KEY);
+      if (user) {
+        document.getElementById('authOverlay').classList.add('hidden');
+        document.getElementById('mainDashboard').classList.remove('hidden');
+      } else {
+        document.getElementById('authOverlay').classList.remove('hidden');
+        document.getElementById('mainDashboard').classList.add('hidden');
+      }
+    }
+
+    function handleAuthLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ email, token: 'demo_token' }));
+      showToast('Signed in successfully', 'success');
+      checkAuthSession();
+    }
+
+    function handleLogout() {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      showToast('Logged out', 'info');
+      checkAuthSession();
+    }
+
+    // --- DATA LOADING & PERSISTENCE ---
+    async function loadInitialData() {
+      appState.students = await MockService.fetchStudents();
+      appState.recycled = await MockService.fetchRecycled();
+      updateRecycleBadge();
+    }
+
+    async function persistState() {
+      await MockService.saveStudents(appState.students);
+      await MockService.saveRecycled(appState.recycled);
+      updateRecycleBadge();
+    }
+
+    function updateRecycleBadge() {
+      const badge = document.getElementById('recycleCountBadge');
+      const count = appState.recycled.length;
+      if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    // --- FILTER ENGINE ---
+    function applyFilters() {
+      const year = document.getElementById('filterAcademicYear').value;
+      const classVal = document.getElementById('filterClass').value;
+      const attendance = document.getElementById('filterAttendance').value;
+      const stream = document.getElementById('filterStream').value;
+      const query = document.getElementById('globalSearchInput').value.toLowerCase().trim();
+
+      appState.filteredList = appState.students.filter(student => {
+        if (year && student.academicYear !== year) return false;
+        if (classVal !== 'ALL' && student.optedClass !== classVal) return false;
+        if (attendance !== 'ALL' && student.attendance !== attendance) return false;
+        if (stream !== 'ALL' && student.optedStream !== stream) return false;
+
+        if (query) {
+          const matchSeq = (student.seqId || '').toLowerCase().includes(query);
+          const matchName = (student.fullName || '').toLowerCase().includes(query);
+          const matchFather = (student.fatherName || '').toLowerCase().includes(query);
+          const matchContact = (student.contact || '').includes(query);
+          if (!matchSeq && !matchName && !matchFather && !matchContact) return false;
+        }
+
+        return true;
+      });
+
+      // Clear selections that are no longer visible
+      const validIds = new Set(appState.filteredList.map(s => s.id));
+      for (const id of appState.selectedIds) {
+        if (!validIds.has(id)) appState.selectedIds.delete(id);
+      }
+
+      renderTable();
+      renderStats();
+      updateBatchControls();
+    }
+
+    // --- STATS ENGINE ---
+    function renderStats() {
+      const total = appState.filteredList.length;
+      const attending = appState.filteredList.filter(s => s.attendance === 'Attending').length;
+      const nonAttending = appState.filteredList.filter(s => s.attendance === 'Non-Attending').length;
+      const dues = appState.filteredList.reduce((acc, curr) => acc + (Number(curr.remainingDue) || 0), 0);
+
+      document.getElementById('statTotalCount').textContent = total;
+      document.getElementById('statAttendingCount').textContent = attending;
+      document.getElementById('statNonAttendingCount').textContent = nonAttending;
+      document.getElementById('statTotalDues').textContent = '₹' + dues.toLocaleString('en-IN');
+    }
+
+    // --- TABLE & CARD RENDERER ---
+    function renderDashboard() {
+      applyFilters();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('studentTableBody');
+      const mobContainer = document.getElementById('studentMobileContainer');
+      const emptyState = document.getElementById('noDataState');
+
+      tbody.innerHTML = '';
+      mobContainer.innerHTML = '';
+
+      if (appState.filteredList.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      appState.filteredList.forEach(student => {
+        const isChecked = appState.selectedIds.has(student.id);
+        const initials = student.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
+
+        // Attendance Badge
+        const isAttending = student.attendance === 'Attending';
+        const attendanceBadge = isAttending 
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800"><i class="fa-solid fa-circle-check mr-1 text-[9px]"></i>Attending</span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800"><i class="fa-solid fa-clock-rotate-left mr-1 text-[9px]"></i>Non-Attending</span>`;
+
+        // Stream color badge
+        let streamClass = "bg-blue-100 text-blue-800";
+        if (student.optedStream === 'PCB') streamClass = "bg-teal-100 text-teal-800";
+        if (student.optedStream === 'Commerce') streamClass = "bg-amber-100 text-amber-800";
+        if (student.optedStream === 'Arts / Humanities') streamClass = "bg-rose-100 text-rose-800";
+
+        // Fee status pill
+        const due = Number(student.remainingDue) || 0;
+        let feeBadge = '';
+        if (due <= 0) {
+          feeBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-check mr-1 text-[9px]"></i>Full Paid</span>`;
+        } else {
+          feeBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Due: ₹${due.toLocaleString('en-IN')}</span>`;
+        }
+
+        // 1. DESKTOP ROW
+        const tr = document.createElement('tr');
+        tr.className = `hover:bg-slate-50 transition border-b border-slate-100 ${isChecked ? 'bg-indigo-50/40' : ''}`;
+        tr.innerHTML = `
+          <td class="p-4 text-center">
+            <input type="checkbox" onchange="toggleStudentSelection('${student.id}', this.checked)" ${isChecked ? 'checked' : ''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          </td>
+          <td class="p-4 font-mono font-bold text-xs text-slate-700">${student.seqId}</td>
+          <td class="p-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs shrink-0">
+                ${initials}
+              </div>
+              <div>
+                <p class="font-bold text-slate-800 leading-tight">${student.fullName}</p>
+                <div class="mt-1">${attendanceBadge}</div>
+              </div>
+            </div>
+          </td>
+          <td class="p-4">
+            <span class="font-medium text-slate-700">${student.optedClass}</span>
+            <div class="mt-1">
+              <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded ${streamClass}">${student.optedStream}</span>
+            </div>
+          </td>
+          <td class="p-4">
+            <p class="text-xs font-semibold text-slate-800">${student.fatherName}</p>
+            <p class="text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
+              <i class="fa-solid fa-phone text-[9px]"></i>
+              <span>${student.contact}</span>
+            </p>
+          </td>
+          <td class="p-4 text-xs text-slate-600">
+            <p>${student.dob || 'N/A'}</p>
+            <p class="text-[11px] text-slate-400 font-medium">${student.gender}</p>
+          </td>
+          <td class="p-4">${feeBadge}</td>
+          <td class="p-4 text-right space-x-1 whitespace-nowrap">
+            <button onclick="viewStudentProfile('${student.id}')" title="View Profile" class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition">
+              <i class="fa-regular fa-eye"></i>
+            </button>
+            <button onclick="editStudentAdmission('${student.id}')" title="Edit Student" class="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-slate-100 transition">
+              <i class="fa-regular fa-pen-to-square"></i>
+            </button>
+            <button onclick="triggerSingleDelete('${student.id}')" title="Delete Student" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-slate-100 transition">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        // 2. MOBILE CARD
+        const card = document.createElement('div');
+        card.className = `p-4 space-y-3 bg-white rounded-xl border border-slate-100 my-2 shadow-sm ${isChecked ? 'ring-2 ring-indigo-500' : ''}`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="flex items-center space-x-2.5">
+              <input type="checkbox" onchange="toggleStudentSelection('${student.id}', this.checked)" ${isChecked ? 'checked' : ''} class="rounded border-slate-300 text-indigo-600">
+              <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                ${initials}
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-800 text-sm">${student.fullName}</h4>
+                <p class="text-[10px] font-mono text-slate-500">${student.seqId}</p>
+              </div>
+            </div>
+            <div>${attendanceBadge}</div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Class & Stream</span>
+              <span class="font-semibold">${student.optedClass} - ${student.optedStream}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Fee Status</span>
+              ${feeBadge}
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Father's Name</span>
+              <span class="font-medium">${student.fatherName}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Contact</span>
+              <a href="tel:${student.contact}" class="font-medium text-indigo-600 flex items-center space-x-1">
+                <i class="fa-solid fa-phone text-[9px]"></i>
+                <span>${student.contact}</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-1 border-t border-slate-100">
+            <button onclick="viewStudentProfile('${student.id}')" class="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg">View</button>
+            <button onclick="editStudentAdmission('${student.id}')" class="px-2.5 py-1 text-xs font-semibold text-amber-600 hover:bg-amber-50 rounded-lg">Edit</button>
+            <button onclick="triggerSingleDelete('${student.id}')" class="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg">Delete</button>
+          </div>
+        `;
+        mobContainer.appendChild(card);
+      });
+    }
+
+    // --- SELECTION & BATCH ACTIONS CONTROLLER ---
+    function toggleStudentSelection(id, checked) {
+      if (checked) {
+        appState.selectedIds.add(id);
+      } else {
+        appState.selectedIds.delete(id);
+      }
+      updateBatchControls();
+      renderTable();
+    }
+
+    function toggleSelectAll(checked) {
+      if (checked) {
+        appState.filteredList.forEach(s => appState.selectedIds.add(s.id));
+      } else {
+        appState.selectedIds.clear();
+      }
+      updateBatchControls();
+      renderTable();
+    }
+
+    function updateBatchControls() {
+      const count = appState.selectedIds.size;
+      const btn = document.getElementById('batchActionsBtn');
+      const label = document.getElementById('batchCountLabel');
+      const selectAll = document.getElementById('selectAllCheckbox');
+
+      label.textContent = `Batch (${count})`;
+      if (count > 0) {
+        btn.disabled = false;
+        btn.className = "inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 text-sm font-semibold rounded-lg shadow-sm transition";
+      } else {
+        btn.disabled = true;
+        btn.className = "inline-flex items-center space-x-1.5 px-3 py-2 bg-white text-slate-400 border border-slate-200 text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed";
+        closeBatchMenu();
+      }
+
+      if (selectAll) {
+        selectAll.checked = appState.filteredList.length > 0 && appState.selectedIds.size === appState.filteredList.length;
+      }
+    }
+
+    function toggleBatchMenu() {
+      const menu = document.getElementById('batchDropdownMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function closeBatchMenu() {
+      document.getElementById('batchDropdownMenu').classList.add('hidden');
+    }
+
+    function toggleExportMenu() {
+      const menu = document.getElementById('exportDropdownMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Close menus on outside click
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#batchActionsBtn') && !e.target.closest('#batchDropdownMenu')) {
+        closeBatchMenu();
+      }
+      if (!e.target.closest('#exportDropdownMenu') && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
+        document.getElementById('exportDropdownMenu').classList.add('hidden');
+      }
+    });
+
+    // --- SEQUENCE NUMBER ENGINE ---
+    function generateSequencePreview() {
+      const year = document.getElementById('filterAcademicYear').value.substring(0, 4);
+      const classVal = document.getElementById('formOptedClass').value === 'Class 12' ? '12' : '11';
+      
+      let streamCode = 'PCM';
+      const streamVal = document.getElementById('formOptedStream').value;
+      if (streamVal === 'PCB') streamCode = 'PCB';
+      if (streamVal === 'Commerce') streamCode = 'COMM';
+      if (streamVal === 'Arts / Humanities') streamCode = 'ARTS';
+
+      // Find next index for this class/stream
+      const count = appState.students.filter(s => s.optedClass === `Class ${classVal}` && s.optedStream === streamVal).length + 1;
+      const indexStr = String(count).padStart(3, '0');
+
+      const preview = `${year}-${classVal}-${streamCode}-${indexStr}`;
+      document.getElementById('formSeqId').value = preview;
+      return preview;
+    }
+
+    // --- FORM MODAL CONTROLLER ---
+    function openStudentModal(editingId = null) {
+      const modal = document.getElementById('studentModal');
+      const form = document.getElementById('studentAdmissionForm');
+      form.reset();
+      document.getElementById('formStudentId').value = '';
+      document.getElementById('modalTitle').textContent = 'Add New Student Admission';
+
+      if (editingId) {
+        document.getElementById('modalTitle').textContent = 'Edit Student Admission Record';
+        populateStudentForm(editingId);
+      } else {
+        // Defaults
+        const defaultAttending = document.querySelector('input[name="formAttendance"][value="Attending"]');
+        if (defaultAttending) defaultAttending.checked = true;
+        document.getElementById('formTotalFee').value = 65000;
+        document.getElementById('formPaymentPlan').value = 'Installment Plan';
+        document.getElementById('formInstallmentCount').value = '3';
+        generateSequencePreview();
+        recalcFeeStructure();
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeStudentModal() {
+      document.getElementById('studentModal').classList.add('hidden');
+    }
+
+    function toggleDisabilityInput(val) {
+      const container = document.getElementById('disabilitySpecContainer');
+      if (val === 'Yes') {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+        document.getElementById('formDisabilityDetail').value = '';
+      }
+    }
+
+    function syncWhatsappNumber() {
+      const same = document.getElementById('formSameWhatsapp').checked;
+      if (same) {
+        document.getElementById('formWhatsapp').value = document.getElementById('formContact').value;
+      }
+    }
+
+    function toggleSameWhatsapp(checked) {
+      if (checked) {
+        document.getElementById('formWhatsapp').value = document.getElementById('formContact').value;
+      }
+    }
+
+    function populateStudentForm(studentId) {
+      const s = appState.students.find(item => item.id === studentId);
+      if (!s) return;
+
+      document.getElementById('formStudentId').value = s.id;
+      document.getElementById('formSeqId').value = s.seqId;
+
+      const attRadio = document.querySelector(`input[name="formAttendance"][value="${s.attendance}"]`);
+      if (attRadio) attRadio.checked = true;
+
+      document.getElementById('formFullName').value = s.fullName || '';
+      document.getElementById('formFatherName').value = s.fatherName || '';
+      document.getElementById('formMotherName').value = s.motherName || '';
+      document.getElementById('formGender').value = s.gender || '';
+      document.getElementById('formDob').value = s.dob || '';
+      document.getElementById('formCategory').value = s.category || 'General';
+      document.getElementById('formNationality').value = s.nationality || 'Indian';
+      document.getElementById('formOnlyChild').value = s.onlyChild || 'No';
+      document.getElementById('formSpeciallyAbled').value = s.speciallyAbled || 'No';
+      toggleDisabilityInput(s.speciallyAbled || 'No');
+      document.getElementById('formDisabilityDetail').value = s.disabilityDetail || '';
+      document.getElementById('formIncome').value = s.income || '';
+
+      if (s.class10) {
+        document.getElementById('form10Year').value = s.class10.year || '';
+        document.getElementById('form10Marks').value = s.class10.marks || '';
+        document.getElementById('form10Roll').value = s.class10.roll || '';
+        document.getElementById('form10Board').value = s.class10.board || 'CBSE';
+      }
+
+      document.getElementById('formOptedClass').value = s.optedClass || 'Class 11';
+      document.getElementById('formOptedStream').value = s.optedStream || 'PCM';
+      document.getElementById('formAddress').value = s.address || '';
+      document.getElementById('formContact').value = s.contact || '';
+      document.getElementById('formWhatsapp').value = s.whatsapp || '';
+      document.getElementById('formEmail').value = s.email || '';
+
+      // Fee
+      document.getElementById('formTotalFee').value = s.totalFee || 0;
+      document.getElementById('formPaymentPlan').value = s.paymentPlan || 'Installment Plan';
+      togglePaymentPlan(s.paymentPlan || 'Installment Plan');
+
+      if (s.paymentPlan === 'Installment Plan' && s.installments) {
+        document.getElementById('formInstallmentCount').value = String(s.installments.length);
+        renderInstallmentRowsFromExisting(s.installments);
+      } else {
+        recalcFeeStructure();
+      }
+    }
+
+    function togglePaymentPlan(plan) {
+      const fullWrapper = document.getElementById('fullPaymentFields');
+      const instWrapper = document.getElementById('installmentTableContainer');
+      const instCountWrapper = document.getElementById('installmentCountWrapper');
+
+      if (plan === 'Full Payment') {
+        fullWrapper.classList.remove('hidden');
+        instWrapper.classList.add('hidden');
+        instCountWrapper.classList.add('hidden');
+      } else {
+        fullWrapper.classList.add('hidden');
+        instWrapper.classList.remove('hidden');
+        instCountWrapper.classList.remove('hidden');
+      }
+      recalcFeeStructure();
+    }
+
+    // --- DYNAMIC INSTALLMENT & FEE CALCULATOR ENGINE ---
+    function recalcFeeStructure() {
+      const totalFee = Number(document.getElementById('formTotalFee').value) || 0;
+      const plan = document.getElementById('formPaymentPlan').value;
+      const tbody = document.getElementById('installmentTbody');
+
+      document.getElementById('feeSummaryTotal').textContent = '₹' + totalFee.toLocaleString('en-IN');
+
+      if (plan === 'Full Payment') {
+        document.getElementById('feeSummaryPaid').textContent = '₹' + totalFee.toLocaleString('en-IN');
+        document.getElementById('feeSummaryDue').textContent = '₹0';
+        return;
+      }
+
+      const count = parseInt(document.getElementById('formInstallmentCount').value) || 3;
+      tbody.innerHTML = '';
+
+      const perInst = Math.floor(totalFee / count);
+      const remainder = totalFee - (perInst * count);
+
+      for (let i = 1; i <= count; i++) {
+        const scheduled = i === 1 ? perInst + remainder : perInst;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-slate-500">Inst. ${i}</td>
+          <td class="p-2 font-semibold">₹${scheduled.toLocaleString('en-IN')}</td>
+          <td class="p-2">
+            <input type="number" min="0" max="${scheduled}" value="${i === 1 ? scheduled : 0}" oninput="recalcFeeTotals()" class="w-24 border border-slate-200 rounded p-1 text-xs inst-paid-input" data-sched="${scheduled}">
+          </td>
+          <td class="p-2">
+            <input type="date" value="${new Date().toISOString().split('T')[0]}" class="border border-slate-200 rounded p-1 text-xs inst-date-input">
+          </td>
+          <td class="p-2">
+            <span class="inst-status-label font-bold text-slate-500">--</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      recalcFeeTotals();
+    }
+
+    function renderInstallmentRowsFromExisting(installments) {
+      const tbody = document.getElementById('installmentTbody');
+      tbody.innerHTML = '';
+      installments.forEach(inst => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-slate-500">Inst. ${inst.num}</td>
+          <td class="p-2 font-semibold">₹${Number(inst.amount).toLocaleString('en-IN')}</td>
+          <td class="p-2">
+            <input type="number" min="0" value="${inst.paid || 0}" oninput="recalcFeeTotals()" class="w-24 border border-slate-200 rounded p-1 text-xs inst-paid-input" data-sched="${inst.amount}">
+          </td>
+          <td class="p-2">
+            <input type="date" value="${inst.date || ''}" class="border border-slate-200 rounded p-1 text-xs inst-date-input">
+          </td>
+          <td class="p-2">
+            <span class="inst-status-label font-bold text-slate-500">${inst.status}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      recalcFeeTotals();
+    }
+
+    function recalcFeeTotals() {
+      const totalFee = Number(document.getElementById('formTotalFee').value) || 0;
+      const plan = document.getElementById('formPaymentPlan').value;
+
+      if (plan === 'Full Payment') {
+        document.getElementById('feeSummaryPaid').textContent = '₹' + totalFee.toLocaleString('en-IN');
+        document.getElementById('feeSummaryDue').textContent = '₹0';
+        return;
+      }
+
+      const rows = document.querySelectorAll('#installmentTbody tr');
+      let sumPaid = 0;
+
+      rows.forEach(r => {
+        const sched = Number(r.querySelector('.inst-paid-input').dataset.sched) || 0;
+        const paid = Number(r.querySelector('.inst-paid-input').value) || 0;
+        const statusSpan = r.querySelector('.inst-status-label');
+
+        sumPaid += paid;
+
+        if (paid >= sched && sched > 0) {
+          statusSpan.textContent = 'Paid';
+          statusSpan.className = 'inst-status-label font-bold text-emerald-600';
+        } else if (paid > 0 && paid < sched) {
+          statusSpan.textContent = 'Partial';
+          statusSpan.className = 'inst-status-label font-bold text-amber-600';
+        } else {
+          statusSpan.textContent = 'Unpaid';
+          statusSpan.className = 'inst-status-label font-bold text-rose-500';
+        }
+      });
+
+      const due = Math.max(0, totalFee - sumPaid);
+      document.getElementById('feeSummaryPaid').textContent = '₹' + sumPaid.toLocaleString('en-IN');
+      document.getElementById('feeSummaryDue').textContent = '₹' + due.toLocaleString('en-IN');
+    }
+
+    // --- SAVE STUDENT ADMISSION FORM ---
+    async function saveStudentForm(e) {
+      e.preventDefault();
+
+      const studentId = document.getElementById('formStudentId').value;
+      const isEditing = Boolean(studentId);
+
+      const attendance = document.querySelector('input[name="formAttendance"]:checked')?.value;
+      if (!attendance) {
+        showToast('Please select Attendance Mode (Attending / Non-Attending)', 'error');
+        return;
+      }
+
+      const totalFee = Number(document.getElementById('formTotalFee').value) || 0;
+      const paymentPlan = document.getElementById('formPaymentPlan').value;
+      let installments = [];
+      let remainingDue = 0;
+
+      if (paymentPlan === 'Full Payment') {
+        installments = [{
+          num: 1,
+          amount: totalFee,
+          paid: totalFee,
+          date: document.getElementById('formFullPayDate').value || new Date().toISOString().split('T')[0],
+          status: 'Paid',
+          mode: document.getElementById('formFullPayMode').value
+        }];
+        remainingDue = 0;
+      } else {
+        const rows = document.querySelectorAll('#installmentTbody tr');
+        let paidSum = 0;
+        rows.forEach((r, idx) => {
+          const sched = Number(r.querySelector('.inst-paid-input').dataset.sched) || 0;
+          const paid = Number(r.querySelector('.inst-paid-input').value) || 0;
+          const date = r.querySelector('.inst-date-input').value;
+          paidSum += paid;
+
+          let status = 'Unpaid';
+          if (paid >= sched && sched > 0) status = 'Paid';
+          else if (paid > 0) status = 'Partial';
+
+          installments.push({ num: idx + 1, amount: sched, paid, date, status });
+        });
+        remainingDue = Math.max(0, totalFee - paidSum);
+      }
+
+      const studentRecord = {
+        id: isEditing ? studentId : 'std_' + Date.now(),
+        seqId: document.getElementById('formSeqId').value,
+        academicYear: document.getElementById('filterAcademicYear').value,
+        attendance: attendance,
+        fullName: document.getElementById('formFullName').value.trim(),
+        fatherName: document.getElementById('formFatherName').value.trim(),
+        motherName: document.getElementById('formMotherName').value.trim(),
+        gender: document.getElementById('formGender').value,
+        dob: document.getElementById('formDob').value,
+        category: document.getElementById('formCategory').value,
+        nationality: document.getElementById('formNationality').value,
+        onlyChild: document.getElementById('formOnlyChild').value,
+        speciallyAbled: document.getElementById('formSpeciallyAbled').value,
+        disabilityDetail: document.getElementById('formDisabilityDetail').value,
+        income: document.getElementById('formIncome').value,
+        class10: {
+          year: document.getElementById('form10Year').value,
+          marks: document.getElementById('form10Marks').value,
+          roll: document.getElementById('form10Roll').value,
+          board: document.getElementById('form10Board').value
+        },
+        optedClass: document.getElementById('formOptedClass').value,
+        optedStream: document.getElementById('formOptedStream').value,
+        address: document.getElementById('formAddress').value.trim(),
+        contact: document.getElementById('formContact').value.trim(),
+        whatsapp: document.getElementById('formWhatsapp').value.trim(),
+        email: document.getElementById('formEmail').value.trim(),
+        totalFee: totalFee,
+        paymentPlan: paymentPlan,
+        installments: installments,
+        remainingDue: remainingDue,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!isEditing) {
+        studentRecord.createdAt = new Date().toISOString();
+        appState.students.unshift(studentRecord);
+        showToast(`Student ${studentRecord.fullName} registered successfully!`, 'success');
+      } else {
+        const index = appState.students.findIndex(s => s.id === studentId);
+        if (index !== -1) {
+          appState.students[index] = { ...appState.students[index], ...studentRecord };
+          showToast(`Student record for ${studentRecord.fullName} updated!`, 'success');
+        }
+      }
+
+      await persistState();
+      closeStudentModal();
+      applyFilters();
+    }
+
+    function editStudentAdmission(id) {
+      openStudentModal(id);
+    }
+
+    // --- STUDENT PROFILE DOSSIER VIEWER ---
+    function viewStudentProfile(id) {
+      const student = appState.students.find(s => s.id === id);
+      if (!student) return;
+
+      const content = document.getElementById('profileContent');
+      const initials = student.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+      content.innerHTML = `
+        <div class="flex items-center space-x-4 border-b border-slate-100 pb-4">
+          <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white font-extrabold flex items-center justify-center text-lg shadow-md">
+            ${initials}
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-base font-bold text-slate-800">${student.fullName}</h3>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${student.attendance === 'Attending' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
+                ${student.attendance}
+              </span>
+            </div>
+            <p class="font-mono text-xs text-indigo-600 font-bold">${student.seqId}</p>
+            <p class="text-[11px] text-slate-400">Class: ${student.optedClass} | Stream: ${student.optedStream}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <span class="font-bold text-slate-700 block uppercase text-[10px]">Family Details</span>
+            <p><span class="text-slate-400">Father:</span> ${student.fatherName}</p>
+            <p><span class="text-slate-400">Mother:</span> ${student.motherName}</p>
+            <p><span class="text-slate-400">Annual Income:</span> ₹${student.income || 'Not disclosed'}</p>
+          </div>
+          <div class="space-y-1">
+            <span class="font-bold text-slate-700 block uppercase text-[10px]">Demographics</span>
+            <p><span class="text-slate-400">DOB:</span> ${student.dob} (${student.gender})</p>
+            <p><span class="text-slate-400">Category:</span> ${student.category}</p>
+            <p><span class="text-slate-400">Only Child:</span> ${student.onlyChild} | <span class="text-slate-400">Specially Abled:</span> ${student.speciallyAbled}</p>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-100 pt-3">
+          <span class="font-bold text-slate-700 block uppercase text-[10px] mb-1">10th Grade Record</span>
+          <p>Roll No: <span class="font-semibold">${student.class10?.roll || 'N/A'}</span> | Board: <span class="font-semibold">${student.class10?.board || 'N/A'}</span> | Score: <span class="font-semibold text-emerald-700">${student.class10?.marks || 'N/A'}</span></p>
+        </div>
+
+        <div class="border-t border-slate-100 pt-3">
+          <span class="font-bold text-slate-700 block uppercase text-[10px] mb-1">Fee & Payment Status</span>
+          <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <span>Total Fee: <strong>₹${Number(student.totalFee).toLocaleString('en-IN')}</strong></span>
+            <span>Plan: <strong>${student.paymentPlan}</strong></span>
+            <span class="${student.remainingDue > 0 ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'}">
+              Due: ₹${Number(student.remainingDue).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      `;
+
+      // Set up download buttons
+      document.getElementById('downloadSingleRecordBtn').onclick = () => downloadSingleStudentExcel(student);
+      document.getElementById('profileExcelPreviewBtn').onclick = () => showExcelPreview(student);
+
+      document.getElementById('profileModal').classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      document.getElementById('profileModal').classList.add('hidden');
+    }
+
+    function showExcelPreview(student) {
+      alert(`Excel Sheet Preview Schema for: ${student.fullName}\n\n[Row]: ${student.seqId} | ${student.fullName} | ${student.attendance} | ${student.optedClass} | ${student.optedStream} | Due: ₹${student.remainingDue}`);
+    }
+
+    function downloadSingleStudentExcel(student) {
+      const data = [{
+        'Sequence ID': student.seqId,
+        'Academic Year': student.academicYear,
+        'Full Name': student.fullName,
+        'Attendance Mode': student.attendance,
+        'Opted Class': student.optedClass,
+        'Opted Stream': student.optedStream,
+        'Father Name': student.fatherName,
+        'Mother Name': student.motherName,
+        'Contact': student.contact,
+        'Email': student.email,
+        'DOB': student.dob,
+        'Gender': student.gender,
+        'Total Fee': student.totalFee,
+        'Remaining Due': student.remainingDue
+      }];
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Student_Record");
+      XLSX.writeFile(wb, `${student.seqId}_${student.fullName.replace(/\s+/g, '_')}.xlsx`);
+      showToast('Downloaded student record (.xlsx)', 'success');
+    }
+
+    // --- DELETION SAFEGUARD & RECYCLE BIN SYSTEM ---
+    function triggerSingleDelete(studentId) {
+      const s = appState.students.find(item => item.id === studentId);
+      if (!s) return;
+      appState.pendingDeletePayload = {
+        type: 'single',
+        ids: [studentId],
+        description: `Student "${s.fullName}" (${s.seqId})`
+      };
+      openDeleteSafeguardModal(`You are about to delete record: "${s.fullName}" (${s.seqId}).`);
+    }
+
+    function triggerBatchDelete(mode) {
+      closeBatchMenu();
+      if (mode === 'selected') {
+        const ids = Array.from(appState.selectedIds);
+        if (ids.length === 0) return;
+        appState.pendingDeletePayload = {
+          type: 'batch_selected',
+          ids: ids,
+          description: `${ids.length} selected students`
+        };
+        openDeleteSafeguardModal(`You are about to delete ${ids.length} selected student records.`);
+      } else if (mode === 'allFiltered') {
+        const ids = appState.filteredList.map(s => s.id);
+        if (ids.length === 0) return;
+        appState.pendingDeletePayload = {
+          type: 'all_filtered',
+          ids: ids,
+          description: `all ${ids.length} currently filtered students`
+        };
+        openDeleteSafeguardModal(`You are about to delete ALL ${ids.length} students currently matching your filters.`);
+      }
+    }
+
+    function openDeleteSafeguardModal(message) {
+      document.getElementById('deleteSafeguardMessage').textContent = message;
+      document.getElementById('deleteSafeguardModal').classList.remove('hidden');
+    }
+
+    function closeDeleteSafeguardModal() {
+      document.getElementById('deleteSafeguardModal').classList.add('hidden');
+      appState.pendingDeletePayload = null;
+    }
+
+    async function confirmDeletion(choice) {
+      if (!appState.pendingDeletePayload) return;
+      const { ids, description } = appState.pendingDeletePayload;
+      const idSet = new Set(ids);
+
+      if (choice === 'soft') {
+        // Move to Recycle Bin
+        const toRecycle = appState.students
+          .filter(s => idSet.has(s.id))
+          .map(s => ({ ...s, deletedAt: new Date().toISOString() }));
+        appState.recycled.push(...toRecycle);
+        appState.students = appState.students.filter(s => !idSet.has(s.id));
+        showToast(`Moved ${description} to Recycle Bin`, 'info');
+      } else if (choice === 'hard') {
+        // Hard permanent purge
+        appState.students = appState.students.filter(s => !idSet.has(s.id));
+        showToast(`Permanently deleted ${description}`, 'error');
+      }
+
+      // Cleanup selections
+      ids.forEach(id => appState.selectedIds.delete(id));
+      await persistState();
+      closeDeleteSafeguardModal();
+      applyFilters();
+    }
+
+    // --- RECYCLE BIN MANAGEMENT SCREEN ---
+    function openRecycleBinModal() {
+      renderRecycleTable();
+      document.getElementById('recycleBinModal').classList.remove('hidden');
+    }
+
+    function closeRecycleBinModal() {
+      document.getElementById('recycleBinModal').classList.add('hidden');
+    }
+
+    function renderRecycleTable() {
+      const tbody = document.getElementById('recycleTableBody');
+      const empty = document.getElementById('recycleEmptyState');
+      const countLabel = document.getElementById('recycleBinItemCount');
+
+      countLabel.textContent = `${appState.recycled.length} archived items`;
+      tbody.innerHTML = '';
+
+      if (appState.recycled.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      appState.recycled.forEach(student => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="p-3 font-mono font-bold text-slate-700">${student.seqId}</td>
+          <td class="p-3 font-semibold text-slate-800">${student.fullName}</td>
+          <td class="p-3 text-slate-600">${student.optedClass} - ${student.optedStream}</td>
+          <td class="p-3 text-slate-500">${new Date(student.deletedAt).toLocaleDateString()}</td>
+          <td class="p-3 text-right space-x-2">
+            <button onclick="restoreSingleRecycled('${student.id}')" class="px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded">
+              <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Restore
+            </button>
+            <button onclick="purgeSingleRecycled('${student.id}')" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded">
+              <i class="fa-solid fa-trash mr-1"></i> Purge
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function restoreSingleRecycled(id) {
+      const index = appState.recycled.findIndex(s => s.id === id);
+      if (index === -1) return;
+      const restored = appState.recycled.splice(index, 1)[0];
+      delete restored.deletedAt;
+      appState.students.unshift(restored);
+      await persistState();
+      renderRecycleTable();
+      applyFilters();
+      showToast(`Restored ${restored.fullName} to active registry`, 'success');
+    }
+
+    async function purgeSingleRecycled(id) {
+      appState.recycled = appState.recycled.filter(s => s.id !== id);
+      await persistState();
+      renderRecycleTable();
+      showToast('Permanently deleted from bin', 'info');
+    }
+
+    async function restoreAllRecycled() {
+      if (appState.recycled.length === 0) return;
+      const count = appState.recycled.length;
+      appState.recycled.forEach(s => {
+        delete s.deletedAt;
+        appState.students.unshift(s);
+      });
+      appState.recycled = [];
+      await persistState();
+      renderRecycleTable();
+      applyFilters();
+      showToast(`Restored all ${count} records successfully`, 'success');
+    }
+
+    async function emptyRecycleBinPermanently() {
+      if (appState.recycled.length === 0) return;
+      if (!confirm('Are you absolutely sure you want to empty the Recycle Bin permanently? This action cannot be reversed.')) return;
+      appState.recycled = [];
+      await persistState();
+      renderRecycleTable();
+      showToast('Recycle bin permanently emptied', 'error');
+    }
+
+    // --- SMART IMPORT ENGINE (FUZZY STREAM & MULTI-DOB NORMALIZER) ---
+    function openImportModal() {
+      document.getElementById('importModal').classList.remove('hidden');
+      document.getElementById('importStatusBox').classList.add('hidden');
+      document.getElementById('selectedFileName').classList.add('hidden');
+      appState.importedRowsCache = [];
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').classList.add('hidden');
+    }
+
+    function switchImportTab(type) {
+      const fileSec = document.getElementById('importFileSection');
+      const urlSec = document.getElementById('importUrlSection');
+      const fileBtn = document.getElementById('importTabFileBtn');
+      const urlBtn = document.getElementById('importTabUrlBtn');
+
+      if (type === 'file') {
+        fileSec.classList.remove('hidden');
+        urlSec.classList.add('hidden');
+        fileBtn.className = "py-2 px-4 border-b-2 border-indigo-600 text-indigo-600";
+        urlBtn.className = "py-2 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+      } else {
+        fileSec.classList.add('hidden');
+        urlSec.classList.remove('hidden');
+        urlBtn.className = "py-2 px-4 border-b-2 border-indigo-600 text-indigo-600";
+        fileBtn.className = "py-2 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+      }
+    }
+
+    function handleFileSelected(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const nameLabel = document.getElementById('selectedFileName');
+      nameLabel.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+      nameLabel.classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        appState.importedRowsCache = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    /**
+     * Case-Insensitive Fuzzy Matcher for Streams
+     */
+    function normalizeStream(val) {
+      if (!val) return 'PCM';
+      const clean = String(val).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (clean.includes('pcm') || clean.includes('math') || clean.includes('nonmed')) return 'PCM';
+      if (clean.includes('pcb') || clean.includes('bio') || clean.includes('medical')) return 'PCB';
+      if (clean.includes('comm') || clean.includes('account') || clean.includes('business')) return 'Commerce';
+      if (clean.includes('art') || clean.includes('human') || clean.includes('history')) return 'Arts / Humanities';
+      return 'PCM';
+    }
+
+    /**
+     * Multi-format Date of Birth Normalizer
+     * Handles: YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, MM/DD/YYYY, Excel Serial Numbers
+     */
+    function normalizeDateOfBirth(input) {
+      if (!input) return '2008-01-01';
+
+      // 1. Excel serial number check (e.g. 43831)
+      if (typeof input === 'number' || (!isNaN(input) && !String(input).includes('-') && !String(input).includes('/'))) {
+        const serial = Number(input);
+        const dateObj = new Date(Math.round((serial - 25569) * 86400 * 1000));
+        if (!isNaN(dateObj.getTime())) {
+          return dateObj.toISOString().split('T')[0];
+        }
+      }
+
+      const str = String(input).trim();
+
+      // 2. Already ISO: YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+      // 3. DD-MM-YYYY or DD/MM/YYYY
+      const partsDash = str.split('-');
+      if (partsDash.length === 3) {
+        if (partsDash[0].length === 2 && partsDash[2].length === 4) {
+          return `${partsDash[2]}-${partsDash[1].padStart(2, '0')}-${partsDash[0].padStart(2, '0')}`;
+        }
+      }
+
+      const partsSlash = str.split('/');
+      if (partsSlash.length === 3) {
+        // DD/MM/YYYY
+        if (partsSlash[2].length === 4) {
+          return `${partsSlash[2]}-${partsSlash[1].padStart(2, '0')}-${partsSlash[0].padStart(2, '0')}`;
+        }
+      }
+
+      // Fallback parse
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+
+      return '2008-01-01';
+    }
+
+    /**
+     * Attendance Status Mapper
+     */
+    function normalizeAttendance(val) {
+      if (!val) return 'Attending';
+      const clean = String(val).toLowerCase();
+      if (clean.includes('non') || clean.includes('dummy') || clean.includes('distance') || clean.includes('external')) {
+        return 'Non-Attending';
+      }
+      return 'Attending';
+    }
+
+    async function executeImport() {
+      const statusBox = document.getElementById('importStatusBox');
+      const isFileTab = !document.getElementById('importFileSection').classList.contains('hidden');
+
+      let rawRows = [];
+
+      if (isFileTab) {
+        rawRows = appState.importedRowsCache;
+        if (!rawRows || rawRows.length === 0) {
+          statusBox.className = "p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+          statusBox.textContent = "Please select a valid Excel or CSV file before proceeding.";
+          statusBox.classList.remove('hidden');
+          return;
+        }
+      } else {
+        // Fetch from Google Sheets CSV Link
+        const url = document.getElementById('importSheetsUrl').value.trim();
+        if (!url) {
+          statusBox.className = "p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+          statusBox.textContent = "Please enter a valid Google Sheets published CSV URL.";
+          statusBox.classList.remove('hidden');
+          return;
+        }
+
+        try {
+          statusBox.className = "p-3 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200";
+          statusBox.textContent = "Fetching data from Google Sheets...";
+          statusBox.classList.remove('hidden');
+
+          const response = await fetch(url);
+          const csvText = await response.text();
+          const workbook = XLSX.read(csvText, { type: 'string' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          rawRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+        } catch (err) {
+          statusBox.className = "p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+          statusBox.textContent = "Failed to fetch Google Sheet. Check permissions and ensure it's published to the web.";
+          statusBox.classList.remove('hidden');
+          return;
+        }
+      }
+
+      // Convert and Normalize imported records
+      const year = document.getElementById('filterAcademicYear').value;
+      let addedCount = 0;
+
+      rawRows.forEach((row, i) => {
+        // Flexible key lookups
+        const fullName = row['Student Full Name'] || row['Student Name'] || row['Name'] || row['fullName'] || `Imported Student ${i + 1}`;
+        const rawStream = row['Stream'] || row['Opted Stream'] || row['Branch'] || 'PCM';
+        const rawAttendance = row['Attendance Mode'] || row['Attendance'] || row['Status'] || 'Attending';
+        const rawDob = row['Date of Birth'] || row['DOB'] || row['Birth Date'] || '';
+        const rawClass = row['Class'] || row['Grade'] || row['Opted Class'] || 'Class 11';
+        const father = row['Father Name'] || row["Father's Name"] || row['Father'] || 'Guardian';
+        const contact = String(row['Contact Number'] || row['Contact'] || row['Phone'] || '9876543210').replace(/\D/g, '').slice(-10);
+        const totalFee = Number(row['Total Fee'] || row['Fee'] || 65000);
+        const paidFee = Number(row['Paid Fee'] || row['Paid'] || 0);
+
+        const stream = normalizeStream(rawStream);
+        const attendance = normalizeAttendance(rawAttendance);
+        const dob = normalizeDateOfBirth(rawDob);
+        const optedClass = String(rawClass).includes('12') ? 'Class 12' : 'Class 11';
+
+        const streamCode = stream === 'PCB' ? 'PCB' : (stream === 'Commerce' ? 'COMM' : (stream === 'Arts / Humanities' ? 'ARTS' : 'PCM'));
+        const seqId = `${year.substring(0, 4)}-${optedClass === 'Class 12' ? '12' : '11'}-${streamCode}-${String(appState.students.length + addedCount + 1).padStart(3, '0')}`;
+
+        const newStudent = {
+          id: 'imp_' + Date.now() + '_' + i,
+          seqId: seqId,
+          academicYear: year,
+          attendance: attendance,
+          fullName: fullName,
+          fatherName: father,
+          motherName: row["Mother's Name"] || 'Mother',
+          gender: row['Gender'] || 'Male',
+          dob: dob,
+          category: row['Category'] || 'General',
+          nationality: 'Indian',
+          onlyChild: 'No',
+          speciallyAbled: 'No',
+          disabilityDetail: '',
+          income: '600000',
+          class10: { year: '2024', marks: '85%', roll: '0000', board: 'CBSE' },
+          optedClass: optedClass,
+          optedStream: stream,
+          address: row['Address'] || 'Address provided at admission',
+          contact: contact || '9876543210',
+          whatsapp: contact || '9876543210',
+          email: row['Email'] || '',
+          totalFee: totalFee,
+          paymentPlan: 'Installment Plan',
+          installments: [
+            { num: 1, amount: totalFee, paid: paidFee, date: new Date().toISOString().split('T')[0], status: paidFee >= totalFee ? 'Paid' : (paidFee > 0 ? 'Partial' : 'Unpaid') }
+          ],
+          remainingDue: Math.max(0, totalFee - paidFee),
+          createdAt: new Date().toISOString()
+        };
+
+        appState.students.unshift(newStudent);
+        addedCount++;
+      });
+
+      await persistState();
+      closeImportModal();
+      applyFilters();
+      showToast(`Successfully imported & normalized ${addedCount} student records!`, 'success');
+    }
+
+    function downloadSampleTemplate() {
+      const templateData = [
+        {
+          'Student Full Name': 'Rohan Gupta',
+          'Attendance Mode': 'Non-Attending',
+          'Opted Class': 'Class 11',
+          'Stream': 'Science-Math (PCM)',
+          "Father's Name": 'Manoj Gupta',
+          "Mother's Name": 'Seema Gupta',
+          'Contact Number': '9898989898',
+          'Date of Birth': '15-08-2008',
+          'Gender': 'Male',
+          'Category': 'General',
+          'Total Fee': 70000,
+          'Paid Fee': 35000
+        },
+        {
+          'Student Full Name': 'Ananya Sen',
+          'Attendance Mode': 'Attending',
+          'Opted Class': 'Class 12',
+          'Stream': 'Commerce with Maths',
+          "Father's Name": 'Subir Sen',
+          "Mother's Name": 'Mitali Sen',
+          'Contact Number': '9876543210',
+          'Date of Birth': '2007-12-04',
+          'Gender': 'Female',
+          'Category': 'General',
+          'Total Fee': 65000,
+          'Paid Fee': 65000
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sample_Import_Template");
+      XLSX.writeFile(wb, "Student_Admission_Sample_Template.xlsx");
+    }
+
+    // --- EXPORT DATA ENGINE ---
+    function exportCurrentView(format = 'xlsx') {
+      document.getElementById('exportDropdownMenu').classList.add('hidden');
+
+      if (appState.filteredList.length === 0) {
+        showToast('No filtered students to export!', 'warning');
+        return;
+      }
+
+      const exportRows = appState.filteredList.map(s => ({
+        'Sequence ID': s.seqId,
+        'Full Name': s.fullName,
+        'Attendance Mode': s.attendance,
+        'Academic Year': s.academicYear,
+        'Class': s.optedClass,
+        'Stream': s.optedStream,
+        "Father's Name": s.fatherName,
+        "Mother's Name": s.motherName,
+        'Contact': s.contact,
+        'WhatsApp': s.whatsapp,
+        'Email': s.email,
+        'DOB': s.dob,
+        'Gender': s.gender,
+        'Category': s.category,
+        'Total Fee (INR)': s.totalFee,
+        'Remaining Due (INR)': s.remainingDue
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Students_Registry");
+
+      const filename = `Students_${document.getElementById('filterClass').value}_${document.getElementById('filterStream').value}_${Date.now()}`;
+
+      if (format === 'xlsx') {
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+        showToast(`Exported ${exportRows.length} records to Excel (.xlsx)`, 'success');
+      } else {
+        XLSX.writeFile(wb, `${filename}.csv`, { bookType: 'csv' });
+        showToast(`Exported ${exportRows.length} records to CSV for Google Sheets`, 'success');
+      }
+    }
+
+    // --- TOAST NOTIFICATION ENGINE ---
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      let bg = 'bg-slate-800 text-white';
+      let icon = 'fa-info-circle text-indigo-400';
+
+      if (type === 'success') {
+        bg = 'bg-slate-900 text-white border-l-4 border-emerald-500';
+        icon = 'fa-circle-check text-emerald-400';
+      } else if (type === 'error') {
+        bg = 'bg-slate-900 text-white border-l-4 border-rose-500';
+        icon = 'fa-triangle-exclamation text-rose-400';
+      } else if (type === 'warning') {
+        bg = 'bg-slate-900 text-white border-l-4 border-amber-500';
+        icon = 'fa-bell text-amber-400';
+      }
+
+      toast.className = `${bg} shadow-2xl rounded-xl p-3.5 flex items-center space-x-3 pointer-events-auto fade-in min-w-[280px] max-w-sm text-xs`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} text-base"></i>
+        <span class="flex-1 font-medium">${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
